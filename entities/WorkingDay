@@ -1,0 +1,32 @@
+{
+  "name": "WorkingDay",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Working day date"
+    },
+    "month": {
+      "type": "number",
+      "description": "Month number (1-12)"
+    },
+    "year": {
+      "type": "number",
+      "description": "Year"
+    },
+    "is_holiday": {
+      "type": "boolean",
+      "description": "Whether this day is a holiday"
+    },
+    "holiday_name": {
+      "type": "string",
+      "description": "Name of holiday if applicable"
+    }
+  },
+  "required": [
+    "date",
+    "month",
+    "year"
+  ]
+}

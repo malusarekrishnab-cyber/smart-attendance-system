@@ -1,0 +1,44 @@
+{
+  "name": "Leave",
+  "type": "object",
+  "properties": {
+    "enrollment_number": {
+      "type": "string",
+      "description": "Student enrollment number"
+    },
+    "student_name": {
+      "type": "string",
+      "description": "Student name"
+    },
+    "from_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Leave start date"
+    },
+    "to_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Leave end date"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for leave"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending",
+      "description": "Leave approval status"
+    }
+  },
+  "required": [
+    "enrollment_number",
+    "from_date",
+    "to_date",
+    "reason"
+  ]
+}

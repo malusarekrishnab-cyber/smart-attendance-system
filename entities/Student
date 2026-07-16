@@ -1,0 +1,26 @@
+{
+  "name": "Student",
+  "type": "object",
+  "properties": {
+    "enrollment_number": {
+      "type": "string",
+      "description": "Unique enrollment number of the student"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name of the student"
+    },
+    "semester": {
+      "type": "number",
+      "description": "Current semester (1-6)"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Engineering branch"
+    }
+  },
+  "required": [
+    "enrollment_number",
+    "name"
+  ]
+}

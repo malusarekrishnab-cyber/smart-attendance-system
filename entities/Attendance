@@ -1,0 +1,37 @@
+{
+  "name": "Attendance",
+  "type": "object",
+  "properties": {
+    "enrollment_number": {
+      "type": "string",
+      "description": "Student enrollment number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Attendance date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "present",
+        "absent",
+        "holiday"
+      ],
+      "description": "Attendance status"
+    },
+    "month": {
+      "type": "number",
+      "description": "Month number (1-12)"
+    },
+    "year": {
+      "type": "number",
+      "description": "Year"
+    }
+  },
+  "required": [
+    "enrollment_number",
+    "date",
+    "status"
+  ]
+}
