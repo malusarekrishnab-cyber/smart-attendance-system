@@ -11,13 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   GraduationCap, LogOut, Calendar, CalendarDays,
   CheckCircle2, XCircle, Loader2, Download, User,
-  BookOpen, Percent, ClipboardList, ArrowLeft, FileText, AlertTriangle, Send
+  BookOpen, Percent, ClipboardList, ArrowLeft, FileText, AlertTriangle, Send,
+  KeyRound, Eye, EyeOff, BellRing, Mail
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entityClient';
+
+
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { generatePDF } from '@/lib/pdfUtils';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
@@ -49,6 +52,14 @@ export default function StudentDashboard() {
   const [leaveTo, setLeaveTo] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
   const [myLeaves, setMyLeaves] = useState([]);
+  const [showChangePass, setShowChangePass] = useState(false);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [changingPass, setChangingPass] = useState(false);
+  const [warnings, setWarnings] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -69,13 +80,15 @@ export default function StudentDashboard() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const students = await base44.entities.Student.filter({ enrollment_number: enrollment });
+    const students = await entities.Student.filter({ enrollment_number: enrollment });
     if (students.length > 0) setStudentName(students[0].name);
     else setStudentName('Student');
-    const attendance = await base44.entities.Attendance.filter({ enrollment_number: enrollment });
+    const attendance = await entities.Attendance.filter({ enrollment_number: enrollment });
     setAllAttendance(attendance);
-    const leaves = await base44.entities.Leave.filter({ enrollment_number: enrollment });
+    const leaves = await entities.Leave.filter({ enrollment_number: enrollment });
     setMyLeaves(leaves);
+    const studentWarnings = await entities.Warning.filter({ enrollment_number: enrollment });
+    setWarnings(studentWarnings);
     if (activeTab === 'monthly') await fetchMonthlyData(attendance);
     else await fetchSemesterData(attendance);
     setIsLoading(false);
@@ -135,6 +148,40 @@ export default function StudentDashboard() {
     setSemesterSummary({ totalLectures, present: totalPresent, absent: totalAbsent, percentage: totalLectures > 0 ? (totalPresent / totalLectures) * 100 : 0 });
   };
 
+  const handleChangePassword = () => {
+    if (!currentPass || !newPass || !confirmPass) {
+      toast.error('Please fill all fields');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPass.length < 4) {
+      toast.error('Password must be at least 4 characters');
+      return;
+    }
+    const accounts = JSON.parse(localStorage.getItem('registeredAccounts') || '[]');
+    const account = accounts.find(a => a.identifier === enrollment && a.role === 'student');
+    if (!account) {
+      toast.error('Account not found');
+      return;
+    }
+    if (account.password !== currentPass) {
+      toast.error('Current password is incorrect');
+      return;
+    }
+    setChangingPass(true);
+    setTimeout(() => {
+      account.password = newPass;
+      localStorage.setItem('registeredAccounts', JSON.stringify(accounts));
+      toast.success('Password changed successfully');
+      setCurrentPass(''); setNewPass(''); setConfirmPass('');
+      setShowChangePass(false);
+      setChangingPass(false);
+    }, 500);
+  };
+
   const handleLogout = () => {
     localStorage.clear();
     toast.success('Logged out successfully');
@@ -191,7 +238,7 @@ export default function StudentDashboard() {
       toast.error('Please fill all leave details');
       return;
     }
-    await base44.entities.Leave.create({
+    await entities.Leave.create({
       enrollment_number: enrollment,
       student_name: studentName,
       from_date: leaveFrom,
@@ -229,6 +276,9 @@ export default function StudentDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowChangePass(!showChangePass)} className={`shrink-0 ${showChangePass ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-indigo-200 text-indigo-700 hover:bg-indigo-50'}`}>
+                <KeyRound className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Change Password</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setShowLeaveForm(!showLeaveForm)} className="border-amber-200 text-amber-700 hover:bg-amber-50 shrink-0">
                 <Send className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Apply Leave</span>
               </Button>
@@ -256,6 +306,75 @@ export default function StudentDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Change Password Form */}
+          {showChangePass && (
+            <Card className="border-0 shadow-md">
+              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><KeyRound className="w-5 h-5 text-indigo-600" />Change Password</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-700">Current Password</Label>
+                  <div className="relative">
+                    <Input type={showCurrentPass ? 'text' : 'password'} placeholder="Enter current password" value={currentPass} onChange={(e) => setCurrentPass(e.target.value)} className="pr-9 border-slate-200" />
+                    <button type="button" onClick={() => setShowCurrentPass(!showCurrentPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-700">New Password</Label>
+                    <div className="relative">
+                      <Input type={showNewPass ? 'text' : 'password'} placeholder="Enter new password" value={newPass} onChange={(e) => setNewPass(e.target.value)} className="pr-9 border-slate-200" />
+                      <button type="button" onClick={() => setShowNewPass(!showNewPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-700">Confirm New Password</Label>
+                    <Input type={showNewPass ? 'text' : 'password'} placeholder="Confirm new password" value={confirmPass} onChange={(e) => setConfirmPass(e.target.value)} className="border-slate-200" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleChangePassword} disabled={changingPass} className="bg-indigo-600 hover:bg-indigo-700">
+                    {changingPass ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <KeyRound className="w-4 h-4 mr-2" />}Update Password
+                  </Button>
+                  <Button variant="outline" onClick={() => { setShowChangePass(false); setCurrentPass(''); setNewPass(''); setConfirmPass(''); }} className="border-slate-200">Cancel</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Teacher Warnings */}
+          {warnings.filter(w => w.status === 'unread').length > 0 && (
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+              <Card className="border-0 shadow-lg bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-l-red-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <motion.div animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 1 }}>
+                      <BellRing className="w-5 h-5 text-red-600" />
+                    </motion.div>
+                    <h3 className="font-bold text-red-700">Attendance Warnings from Teacher</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {warnings.filter(w => w.status === 'unread').map((warning, idx) => (
+                      <motion.div key={warning.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }}
+                        className="flex items-start gap-2 p-3 bg-white rounded-lg border border-red-100">
+                        <Mail className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-700">{warning.message}</p>
+                          <p className="text-xs text-slate-400 mt-1">Attendance: {warning.attendance_percentage?.toFixed(1)}%</p>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={async () => { await entities.Warning.update(warning.id, { status: 'read' }); fetchData(); }}
+                          className="text-slate-400 hover:text-slate-600 h-7 px-2 text-xs">Mark Read</Button>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Low Attendance Alert */}
           {lowAttendance && (

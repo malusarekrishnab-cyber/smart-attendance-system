@@ -8,16 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import {
   GraduationCap, LogOut, Calendar, Search, Loader2, Download,
   Users, BookOpen, ArrowLeft, User, Hash, FileText, ClipboardCheck,
-  Plus, Minus
+  Plus, Minus, UserCog, CalendarOff, CreditCard, AlertTriangle, Send, BellRing, TrendingDown, CheckCircle2, Percent
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entityClient';
+
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { generatePDF } from '@/lib/pdfUtils';
 import { StudentComparisonChart } from '@/components/AttendanceChart';
+import StudentManager from '@/components/teacher/StudentManager';
+import PasswordResetRequests from '@/components/teacher/PasswordResetRequests';
+import HolidayManager from '@/components/teacher/HolidayManager';
+import RfidManager from '@/components/teacher/RfidManager';
+import WarningModal from '@/components/teacher/WarningModal';
 
 const MONTHS = [
   { value: '1', label: 'January' }, { value: '2', label: 'February' }, { value: '3', label: 'March' },
@@ -40,7 +46,11 @@ export default function TeacherDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [showStudentDetail, setShowStudentDetail] = useState(false);
+  const [showManageStudents, setShowManageStudents] = useState(false);
+  const [showHolidays, setShowHolidays] = useState(false);
+  const [showRfidManager, setShowRfidManager] = useState(false);
   const [editingEnrollment, setEditingEnrollment] = useState(null);
+  const [warningTarget, setWarningTarget] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,10 +66,10 @@ export default function TeacherDashboard() {
 
   const fetchMonthlyData = async () => {
     setIsLoading(true);
-    const allStudents = await base44.entities.Student.list();
+    const allStudents = await entities.Student.list();
     setStudents(allStudents);
     const monthNum = parseInt(selectedMonth);
-    const allAttendance = await base44.entities.Attendance.filter({ month: monthNum, year: selectedYear });
+    const allAttendance = await entities.Attendance.filter({ month: monthNum, year: selectedYear });
     const daysInMonth = getDaysInMonth(new Date(selectedYear, monthNum - 1));
     const monthStart = startOfMonth(new Date(selectedYear, monthNum - 1));
     const studentSummaries = [];
@@ -103,7 +113,7 @@ export default function TeacherDashboard() {
       if (month <= 0) { month += 12; year -= 1; }
       semesterMonths.push({ month, year });
     }
-    const allAttendance = await base44.entities.Attendance.filter({ enrollment_number: enrollment });
+    const allAttendance = await entities.Attendance.filter({ enrollment_number: enrollment });
     const monthlyAgg = [];
     let totalLectures = 0, totalPresent = 0, totalAbsent = 0;
     for (const { month, year } of semesterMonths) {
@@ -178,13 +188,31 @@ export default function TeacherDashboard() {
 
   const backToMainView = () => { setShowStudentDetail(false); setSelectedStudent(null); setSearchQuery(''); };
 
+  const atRiskStudents = monthlyData.filter(s => s.percentage > 0 && s.percentage < 75);
+  const goodStandingStudents = monthlyData.filter(s => s.percentage >= 75).length;
+
+  const sendWarningToAll = async () => {
+    if (atRiskStudents.length === 0) return;
+    toast.info(`Sending warnings to ${atRiskStudents.length} students...`);
+    for (const student of atRiskStudents) {
+      await entities.Warning.create({
+        enrollment_number: student.enrollment_number,
+        student_name: student.name,
+        attendance_percentage: student.percentage,
+        message: `Dear ${student.name}, your attendance is ${student.percentage.toFixed(1)}%, which is below the required 75%. Please improve your attendance immediately to avoid academic penalties.`,
+        status: 'unread'
+      });
+    }
+    toast.success(`Warnings sent to ${atRiskStudents.length} students!`);
+  };
+
   const handleAdjustAttendance = async (enrollmentNumber, status, delta) => {
     setEditingEnrollment(enrollmentNumber);
     try {
       const monthNum = parseInt(selectedMonth);
       const daysInMonth = getDaysInMonth(new Date(selectedYear, monthNum - 1));
       const monthStart = startOfMonth(new Date(selectedYear, monthNum - 1));
-      const allAttendance = await base44.entities.Attendance.filter({ month: monthNum, year: selectedYear, enrollment_number: enrollmentNumber });
+      const allAttendance = await entities.Attendance.filter({ month: monthNum, year: selectedYear, enrollment_number: enrollmentNumber });
 
       if (delta > 0) {
         // Find first working day without a record
@@ -195,7 +223,7 @@ export default function TeacherDashboard() {
           if (isSunday) continue;
           const exists = allAttendance.find(a => a.date === dateStr);
           if (!exists) {
-            await base44.entities.Attendance.create({ enrollment_number: enrollmentNumber, date: dateStr, status, month: monthNum, year: selectedYear });
+            await entities.Attendance.create({ enrollment_number: enrollmentNumber, date: dateStr, status, month: monthNum, year: selectedYear });
             break;
           }
         }
@@ -204,7 +232,7 @@ export default function TeacherDashboard() {
         // Find and delete one record with matching status
         const toDelete = allAttendance.find(a => a.status === status);
         if (toDelete) {
-          await base44.entities.Attendance.delete(toDelete.id);
+          await entities.Attendance.delete(toDelete.id);
           toast.success(`Removed 1 ${status} for ${enrollmentNumber}`);
         } else {
           toast.error(`No ${status} records to remove`);
@@ -232,6 +260,15 @@ export default function TeacherDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowRfidManager(!showRfidManager); setShowHolidays(false); setShowManageStudents(false); setShowStudentDetail(false); }} className={`shrink-0 ${showRfidManager ? 'border-purple-400 bg-purple-50 text-purple-700' : 'border-purple-200 text-purple-700 hover:bg-purple-50'}`}>
+                <CreditCard className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">RFID Cards</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setShowHolidays(!showHolidays); setShowManageStudents(false); setShowRfidManager(false); }} className={`shrink-0 ${showHolidays ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-orange-200 text-orange-700 hover:bg-orange-50'}`}>
+                <CalendarOff className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Holidays</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setShowManageStudents(!showManageStudents); setShowHolidays(false); setShowRfidManager(false); }} className={`shrink-0 ${showManageStudents ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-indigo-200 text-indigo-700 hover:bg-indigo-50'}`}>
+                <UserCog className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Manage Students</span>
+              </Button>
               <Button variant="outline" size="sm" onClick={() => navigate(createPageUrl('MarkAttendance'))} className="border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0">
                 <ClipboardCheck className="w-4 h-4 sm:mr-1" /><span className="hidden sm:inline">Mark Attendance</span>
               </Button>
@@ -245,7 +282,27 @@ export default function TeacherDashboard() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
         <AnimatePresence mode="wait">
-          {!showStudentDetail ? (
+          {showRfidManager ? (
+            <motion.div key="rfid" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-6">
+              <RfidManager />
+            </motion.div>
+          ) : showHolidays ? (
+            <motion.div key="holidays" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-6">
+              <div className="flex items-center gap-3">
+                <CalendarOff className="w-8 h-8 text-orange-600" />
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">Manage Holidays</h2>
+                  <p className="text-slate-500">Mark days as holidays for all students</p>
+                </div>
+              </div>
+              <HolidayManager selectedMonth={selectedMonth} selectedYear={selectedYear} />
+            </motion.div>
+          ) : showManageStudents ? (
+            <motion.div key="manage" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-6">
+              <PasswordResetRequests />
+              <StudentManager onBack={() => setShowManageStudents(false)} />
+            </motion.div>
+          ) : !showStudentDetail ? (
             <motion.div key="main" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
               <div className="flex items-center gap-3">
                 <Users className="w-8 h-8 text-indigo-600" />
@@ -277,6 +334,65 @@ export default function TeacherDashboard() {
                 </CardContent>
               </Card>
 
+              {/* At-Risk Alert Banner */}
+              {!isLoading && atRiskStudents.length > 0 && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                  <Card className="border-0 shadow-lg bg-gradient-to-r from-red-500 to-orange-500 overflow-hidden">
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                          <motion.div animate={{ rotate: [0, -10, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 1.5, repeatDelay: 1 }}
+                            className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                            <BellRing className="w-6 h-6 text-white" />
+                          </motion.div>
+                          <div className="text-white">
+                            <h3 className="font-bold text-lg">{atRiskStudents.length} Student{atRiskStudents.length > 1 ? 's' : ''} Below 75% Attendance!</h3>
+                            <p className="text-sm text-red-100">Send warnings to improve attendance</p>
+                          </div>
+                        </div>
+                        <Button onClick={sendWarningToAll} className="bg-white text-red-600 hover:bg-red-50 font-semibold shrink-0">
+                          <Send className="w-4 h-4 mr-2" />Warn All ({atRiskStudents.length})
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Quick Stats Row */}
+              {!isLoading && monthlyData.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+                    <Card className="border-0 shadow-sm bg-white"><CardContent className="p-4 text-center">
+                      <Users className="w-6 h-6 text-indigo-500 mx-auto mb-1" />
+                      <p className="text-xl font-bold text-slate-800">{monthlyData.length}</p>
+                      <p className="text-xs text-slate-500">Total Students</p>
+                    </CardContent></Card>
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                    <Card className="border-0 shadow-sm bg-white"><CardContent className="p-4 text-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1" />
+                      <p className="text-xl font-bold text-emerald-600">{goodStandingStudents}</p>
+                      <p className="text-xs text-slate-500">Above 75%</p>
+                    </CardContent></Card>
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                    <Card className={`border-0 shadow-sm ${atRiskStudents.length > 0 ? 'bg-red-50 ring-2 ring-red-200' : 'bg-white'}`}><CardContent className="p-4 text-center">
+                      <TrendingDown className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                      <p className="text-xl font-bold text-red-600">{atRiskStudents.length}</p>
+                      <p className="text-xs text-slate-500">Below 75%</p>
+                    </CardContent></Card>
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                    <Card className="border-0 shadow-sm bg-white"><CardContent className="p-4 text-center">
+                      <Percent className="w-6 h-6 text-blue-500 mx-auto mb-1" />
+                      <p className="text-xl font-bold text-blue-600">{monthlyData.length > 0 ? (monthlyData.reduce((sum, s) => sum + s.percentage, 0) / monthlyData.length).toFixed(1) : 0}%</p>
+                      <p className="text-xs text-slate-500">Class Average</p>
+                    </CardContent></Card>
+                  </motion.div>
+                </div>
+              )}
+
               {/* Chart */}
               {!isLoading && monthlyData.length > 0 && <StudentComparisonChart data={monthlyData} />}
 
@@ -286,15 +402,20 @@ export default function TeacherDashboard() {
                 <Card className="border-0 shadow-md overflow-hidden">
                   <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50"><TableRow><TableHead className="font-semibold">Enrollment</TableHead><TableHead className="font-semibold">Student Name</TableHead><TableHead className="font-semibold text-center">Total</TableHead><TableHead className="font-semibold text-center">Present</TableHead><TableHead className="font-semibold text-center">Absent</TableHead><TableHead className="font-semibold text-center">%</TableHead><TableHead className="font-semibold text-center">Edit</TableHead></TableRow></TableHeader>
+                    <TableHeader className="bg-slate-50"><TableRow><TableHead className="font-semibold">Enrollment</TableHead><TableHead className="font-semibold">Student Name</TableHead><TableHead className="font-semibold text-center">Total</TableHead><TableHead className="font-semibold text-center">Present</TableHead><TableHead className="font-semibold text-center">Absent</TableHead><TableHead className="font-semibold text-center">%</TableHead><TableHead className="font-semibold text-center">Edit</TableHead><TableHead className="font-semibold text-center">Warn</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {monthlyData.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">No students found</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No students found</TableCell></TableRow>
                       ) : (
                         monthlyData.map((row, idx) => (
-                          <TableRow key={idx} className="hover:bg-slate-50">
+                          <TableRow key={idx} className={`hover:bg-slate-50 ${row.percentage > 0 && row.percentage < 75 ? 'bg-red-50/50 border-l-4 border-l-red-500' : ''}`}>
                             <TableCell className="font-mono font-medium cursor-pointer" onClick={() => { setSearchQuery(row.enrollment_number); handleSearch(); }}>{row.enrollment_number}</TableCell>
-                            <TableCell className="font-medium cursor-pointer" onClick={() => { setSearchQuery(row.enrollment_number); handleSearch(); }}>{row.name}</TableCell>
+                            <TableCell className="font-medium cursor-pointer" onClick={() => { setSearchQuery(row.enrollment_number); handleSearch(); }}>
+                              <div className="flex items-center gap-1">
+                                {row.percentage > 0 && row.percentage < 75 && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                                {row.name}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-center font-semibold">{row.totalLectures}</TableCell>
                             <TableCell className="text-center">
                               <div className="inline-flex items-center gap-1">
@@ -312,6 +433,16 @@ export default function TeacherDashboard() {
                             </TableCell>
                             <TableCell className="text-center"><Badge className={`${getPercentageColor(row.percentage)} border-0 font-semibold`}>{row.percentage.toFixed(1)}%</Badge></TableCell>
                             <TableCell className="text-center">{editingEnrollment === row.enrollment_number ? <Loader2 className="w-4 h-4 animate-spin text-slate-400 mx-auto" /> : <span className="text-slate-300 text-xs">±</span>}</TableCell>
+                            <TableCell className="text-center">
+                              {row.percentage > 0 && row.percentage < 75 ? (
+                                <Button size="sm" variant="outline" onClick={() => setWarningTarget({ student: { name: row.name, enrollment_number: row.enrollment_number }, percentage: row.percentage })}
+                                  className="border-red-300 text-red-600 hover:bg-red-50 h-8 px-2">
+                                  <AlertTriangle className="w-3 h-3 mr-1" />Warn
+                                </Button>
+                              ) : (
+                                <span className="text-slate-300 text-xs">—</span>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
@@ -364,6 +495,15 @@ export default function TeacherDashboard() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {warningTarget && (
+          <WarningModal
+            student={warningTarget.student}
+            percentage={warningTarget.percentage}
+            onClose={() => setWarningTarget(null)}
+            onSent={() => setWarningTarget(null)}
+          />
+        )}
       </main>
 
       <footer className="py-4 text-center border-t border-slate-200 bg-white/50">

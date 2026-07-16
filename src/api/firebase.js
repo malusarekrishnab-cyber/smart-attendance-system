@@ -1,24 +1,21 @@
-// Import the functions you need from the SDKs
+// Firebase SDK madhun function import kartoy
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getAuth } from "firebase/auth";           // लॉगिनसाठी
-import { getFirestore } from "firebase/firestore"; // डेटाबेससाठी
+import { getAuth } from "firebase/auth";           // login sathi (pudhe lagla tar)
+import { getFirestore } from "firebase/firestore"; // database sathi
 
-// Your web app's Firebase configuration
+// Config ata .env file madhun yete (security sathi safe)
 const firebaseConfig = {
-  apiKey: "AIzaSyALyxTCe1LETs9ylwMrV2f_bJqd4xyHiUI",
-  authDomain: "smart-attendent-system.firebaseapp.com",
-  projectId: "smart-attendent-system",
-  storageBucket: "smart-attendent-system.firebasestorage.app",
-  messagingSenderId: "987979353919",
-  appId: "1:987979353919:web:33f3a56e32a804ad008d8a",
-  measurementId: "G-RW4N9VXPZN"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
+// Firebase initialize kartoy
 const app = initializeApp(firebaseConfig);
 
-// Export these so you can use them in other files
-export const analytics = getAnalytics(app);
-export const auth = getAuth(app); 
+// entityClient.js ani baki files madhe vaparण्यासाठी export karतोय
+export const auth = getAuth(app);
 export const db = getFirestore(app);

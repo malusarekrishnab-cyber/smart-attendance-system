@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { GraduationCap, User, Lock, Eye, EyeOff, Loader2, UserPlus, LogIn, Hash, Mail, Shield } from 'lucide-react';
+import { GraduationCap, User, Lock, Eye, EyeOff, Loader2, UserPlus, LogIn, Hash, Mail, Shield, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { entities } from '@/api/entityClient';
+import ForgotPassword from '@/components/auth/ForgotPassword';
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
@@ -35,15 +37,25 @@ export default function Home() {
     return email.endsWith('.ac.in') || email.endsWith('.edu') || email.endsWith('.edu.in');
   };
 
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
     if (!name.trim() || !password.trim()) {
       toast.error('Please fill all fields');
       return;
     }
     if (role === 'student') {
-      if (!username.trim()) { toast.error('Please enter username'); return; }
       if (!enrollment.trim()) { toast.error('Please enter enrollment number'); return; }
+      // Protection: enrollment must exist in Student entity (teacher must have added the student)
+      try {
+        const existingStudents = await entities.Student.filter({ enrollment_number: enrollment.trim() });
+        if (existingStudents.length === 0) {
+          toast.error('This enrollment number is not registered by your teacher. Please contact your teacher to be added first.');
+          return;
+        }
+      } catch (err) {
+        toast.error('Unable to verify enrollment. Please try again.');
+        return;
+      }
     }
     if (role === 'teacher') {
       if (!username.trim()) { toast.error('Please enter username'); return; }
@@ -67,7 +79,7 @@ export default function Home() {
     }
 
     const accounts = getAccounts();
-    const identifier = role === 'admin' ? email.trim() : username.trim();
+    const identifier = role === 'admin' ? email.trim() : role === 'student' ? enrollment.trim() : username.trim();
     if (accounts.find(a => a.identifier === identifier)) {
       toast.error('Account already exists. Please sign in.');
       return;
@@ -76,13 +88,15 @@ export default function Home() {
     setIsLoading(true);
     setTimeout(() => {
       const account = {
+        id: `acc_${Date.now()}`,
         name: name.trim(),
         identifier,
-        username: role === 'admin' ? email.trim() : username.trim(),
+        username: role === 'admin' ? email.trim() : role === 'student' ? enrollment.trim() : username.trim(),
         email: role === 'admin' ? email.trim() : null,
         password: password.trim(),
         role,
-        enrollment: role === 'student' ? enrollment.trim() : null
+        enrollment: role === 'student' ? enrollment.trim() : null,
+        created_date: new Date().toISOString()
       };
       accounts.push(account);
       localStorage.setItem('registeredAccounts', JSON.stringify(accounts));
@@ -110,25 +124,42 @@ export default function Home() {
     setIsLoading(true);
     setTimeout(() => {
       const accounts = getAccounts();
+      // Find account by username, email, or enrollment number
       const account = accounts.find(a =>
-        (a.username === username.trim() || a.email === username.trim()) &&
-        a.password === password.trim()
+        a.username === username.trim() ||
+        a.email === username.trim() ||
+        (a.enrollment && a.enrollment.toLowerCase() === username.trim().toLowerCase())
       );
-      if (account) {
-        localStorage.setItem('userRole', account.role);
-        localStorage.setItem('userName', account.name);
-        localStorage.setItem('isLoggedIn', 'true');
-        if (account.role === 'student' && account.enrollment) {
-          localStorage.setItem('studentEnrollment', account.enrollment);
-        }
-        if (account.role === 'admin' && account.email) {
-          localStorage.setItem('adminEmail', account.email);
-        }
-        toast.success(`Welcome back, ${account.name}!`);
-        navigate(createPageUrl(account.role === 'student' ? 'StudentDashboard' : account.role === 'teacher' ? 'TeacherDashboard' : 'AdminDashboard'));
-      } else {
-        toast.error('Account not found. Please create an account first.');
+      if (!account) {
+        setIsLoading(false);
+        toast.error('Account not found! No account exists with this username, email, or enrollment number.');
+        return;
       }
+      if (account.password !== password.trim()) {
+        setIsLoading(false);
+        toast.error(`Incorrect password! Please check your password and try again.`);
+        return;
+      }
+      // Save data with id and old id for tracking
+      const oldAccountId = account.id || null;
+      const newAccountId = account.id || `acc_${Date.now()}`;
+      account.id = newAccountId;
+      account.old_id = oldAccountId;
+      account.last_login = new Date().toISOString();
+      const updatedAccounts = accounts.map(a => a.identifier === account.identifier ? account : a);
+      localStorage.setItem('registeredAccounts', JSON.stringify(updatedAccounts));
+      localStorage.setItem('userRole', account.role);
+      localStorage.setItem('userName', account.name);
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('accountId', newAccountId);
+      if (account.role === 'student' && account.enrollment) {
+        localStorage.setItem('studentEnrollment', account.enrollment);
+      }
+      if (account.role === 'admin' && account.email) {
+        localStorage.setItem('adminEmail', account.email);
+      }
+      toast.success(`Welcome back, ${account.name}!`);
+      navigate(createPageUrl(account.role === 'student' ? 'StudentDashboard' : account.role === 'teacher' ? 'TeacherDashboard' : 'AdminDashboard'));
       setIsLoading(false);
     }, 800);
   };
@@ -209,7 +240,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {role !== 'admin' ? (
+                    {role === 'teacher' && (
                       <div className="space-y-2">
                         <Label htmlFor="su-username" className="text-blue-100">Username</Label>
                         <div className="relative">
@@ -217,7 +248,9 @@ export default function Home() {
                           <Input id="su-username" type="text" placeholder="Choose a username" value={username} onChange={(e) => setUsername(e.target.value)} className="pl-11 h-12 bg-white/10 border-white/20 text-white placeholder:text-blue-200/40 focus:border-blue-400 focus:ring-blue-400/20" />
                         </div>
                       </div>
-                    ) : (
+                    )}
+
+                    {role === 'admin' && (
                       <div className="space-y-2">
                         <Label htmlFor="su-email" className="text-blue-100">Institute Email</Label>
                         <div className="relative">
@@ -246,7 +279,7 @@ export default function Home() {
                           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
                           <Input id="enrollment" type="text" placeholder="e.g., 2024001" value={enrollment} onChange={(e) => setEnrollment(e.target.value)} className="pl-11 h-12 bg-white/10 border-white/20 text-white placeholder:text-blue-200/40 focus:border-blue-400 focus:ring-blue-400/20 font-mono" />
                         </div>
-                        <p className="text-xs text-blue-200/40 text-center">Demo enrollments: 2024001 – 2024006</p>
+                        <p className="text-xs text-blue-200/40 text-center">Your enrollment must be added by your teacher first</p>
                       </motion.div>
                     )}
 
@@ -276,13 +309,13 @@ export default function Home() {
                       {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
                     </Button>
                   </motion.form>
-                ) : (
+                ) : mode === 'signin' ? (
                   <motion.form key="signin" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} onSubmit={handleSignIn} className="space-y-5">
                     <div className="space-y-2">
-                      <Label htmlFor="si-username" className="text-blue-100">Username or Email</Label>
+                      <Label htmlFor="si-username" className="text-blue-100">Enrollment No., Email, or Username</Label>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-300/50" />
-                        <Input id="si-username" type="text" placeholder="Enter username or email" value={username} onChange={(e) => setUsername(e.target.value)} className="pl-11 h-12 bg-white/10 border-white/20 text-white placeholder:text-blue-200/40 focus:border-blue-400 focus:ring-blue-400/20" />
+                        <Input id="si-username" type="text" placeholder="Enter username, email, or enrollment" value={username} onChange={(e) => setUsername(e.target.value)} className="pl-11 h-12 bg-white/10 border-white/20 text-white placeholder:text-blue-200/40 focus:border-blue-400 focus:ring-blue-400/20" />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -302,7 +335,14 @@ export default function Home() {
                       Don't have an account?{' '}
                       <button type="button" onClick={() => setMode('signup')} className="text-blue-300 hover:text-blue-200 font-semibold underline">Create one</button>
                     </p>
+                    <p className="text-center">
+                      <button type="button" onClick={() => setMode('forgot')} className="text-sm text-blue-300/70 hover:text-blue-200 underline inline-flex items-center gap-1">
+                        <KeyRound className="w-3.5 h-3.5" />Forgot Password?
+                      </button>
+                    </p>
                   </motion.form>
+                ) : (
+                  <ForgotPassword onBack={() => setMode('signin')} />
                 )}
               </AnimatePresence>
 

@@ -3,6 +3,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import TeacherDashboard from './pages/TeacherDashboard';
 import MarkAttendance from './pages/MarkAttendance';
 import AdminDashboard from './pages/AdminDashboard';
+import ScanAttendance from './pages/ScanAttendance';
 
 export const PAGES = {
     "Home": Home,
@@ -10,6 +11,7 @@ export const PAGES = {
     "TeacherDashboard": TeacherDashboard,
     "MarkAttendance": MarkAttendance,
     "AdminDashboard": AdminDashboard,
+    "ScanAttendance": ScanAttendance,
 }
 
 export const pagesConfig = {
