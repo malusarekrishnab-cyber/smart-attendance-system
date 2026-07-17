@@ -14,16 +14,10 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { entities } from '@/api/entityClient';
-
+import { Student, Attendance, Leave, Warning, WorkingDay } from "@/api/entityClient";
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { generatePDF } from '@/lib/pdfUtils';
 import { StudentComparisonChart } from '@/components/AttendanceChart';
-import StudentManager from '@/components/teacher/StudentManager';
-import PasswordResetRequests from '@/components/teacher/PasswordResetRequests';
-import HolidayManager from '@/components/teacher/HolidayManager';
-import RfidManager from '@/components/teacher/RfidManager';
-import WarningModal from '@/components/teacher/WarningModal';
 
 const MONTHS = [
   { value: '1', label: 'January' }, { value: '2', label: 'February' }, { value: '3', label: 'March' },
@@ -66,10 +60,10 @@ export default function TeacherDashboard() {
 
   const fetchMonthlyData = async () => {
     setIsLoading(true);
-    const allStudents = await entities.Student.list();
+    const allStudents = await Student.list();
     setStudents(allStudents);
     const monthNum = parseInt(selectedMonth);
-    const allAttendance = await entities.Attendance.filter({ month: monthNum, year: selectedYear });
+    const allAttendance = await Attendance.filter({ month: monthNum, year: selectedYear });
     const daysInMonth = getDaysInMonth(new Date(selectedYear, monthNum - 1));
     const monthStart = startOfMonth(new Date(selectedYear, monthNum - 1));
     const studentSummaries = [];
@@ -113,7 +107,7 @@ export default function TeacherDashboard() {
       if (month <= 0) { month += 12; year -= 1; }
       semesterMonths.push({ month, year });
     }
-    const allAttendance = await entities.Attendance.filter({ enrollment_number: enrollment });
+    const allAttendance = await Attendance.filter({ enrollment_number: enrollment });
     const monthlyAgg = [];
     let totalLectures = 0, totalPresent = 0, totalAbsent = 0;
     for (const { month, year } of semesterMonths) {
@@ -195,7 +189,7 @@ export default function TeacherDashboard() {
     if (atRiskStudents.length === 0) return;
     toast.info(`Sending warnings to ${atRiskStudents.length} students...`);
     for (const student of atRiskStudents) {
-      await entities.Warning.create({
+      await Warning.create({
         enrollment_number: student.enrollment_number,
         student_name: student.name,
         attendance_percentage: student.percentage,
@@ -212,7 +206,7 @@ export default function TeacherDashboard() {
       const monthNum = parseInt(selectedMonth);
       const daysInMonth = getDaysInMonth(new Date(selectedYear, monthNum - 1));
       const monthStart = startOfMonth(new Date(selectedYear, monthNum - 1));
-      const allAttendance = await entities.Attendance.filter({ month: monthNum, year: selectedYear, enrollment_number: enrollmentNumber });
+      const allAttendance = await Attendance.filter({ month: monthNum, year: selectedYear, enrollment_number: enrollmentNumber });
 
       if (delta > 0) {
         // Find first working day without a record
@@ -223,7 +217,7 @@ export default function TeacherDashboard() {
           if (isSunday) continue;
           const exists = allAttendance.find(a => a.date === dateStr);
           if (!exists) {
-            await entities.Attendance.create({ enrollment_number: enrollmentNumber, date: dateStr, status, month: monthNum, year: selectedYear });
+            await Attendance.create({ enrollment_number: enrollmentNumber, date: dateStr, status, month: monthNum, year: selectedYear });
             break;
           }
         }
@@ -232,7 +226,7 @@ export default function TeacherDashboard() {
         // Find and delete one record with matching status
         const toDelete = allAttendance.find(a => a.status === status);
         if (toDelete) {
-          await entities.Attendance.delete(toDelete.id);
+          await Attendance.delete(toDelete.id);
           toast.success(`Removed 1 ${status} for ${enrollmentNumber}`);
         } else {
           toast.error(`No ${status} records to remove`);

@@ -38,7 +38,7 @@ export default function ScanAttendance() {
   }, [students]);
 
   const fetchStudents = async () => {
-    const all = await entities.Student.list();
+    const all = await Student.list();
     setStudents(all);
   };
 
@@ -65,7 +65,7 @@ export default function ScanAttendance() {
       const year = now.getFullYear();
 
       // Check if already marked today
-      const existing = await entities.Attendance.filter({
+      const existing = await Attendance.filter({
         date: today,
         enrollment_number: student.enrollment_number
       });
@@ -77,14 +77,14 @@ export default function ScanAttendance() {
           setScanHistory(prev => [{ status: 'duplicate', uid: trimmedUid, name: student.name, enrollment: student.enrollment_number, time: now }, ...prev].slice(0, 10));
         } else {
           // Update to present
-          await entities.Attendance.update(existing[0].id, { status: 'present' });
+          await Attendance.update(existing[0].id, { status: 'present' });
           toast.success(`${student.name} marked present!`);
           setLastScanned({ status: 'present', uid: trimmedUid, name: student.name, enrollment: student.enrollment_number });
           setScanHistory(prev => [{ status: 'present', uid: trimmedUid, name: student.name, enrollment: student.enrollment_number, time: now }, ...prev].slice(0, 10));
         }
       } else {
         // Create new present record
-        await entities.Attendance.create({
+        await Attendance.create({
           enrollment_number: student.enrollment_number,
           date: today,
           status: 'present',

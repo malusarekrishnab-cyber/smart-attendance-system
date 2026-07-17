@@ -8,8 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { entities } from '@/api/entityClient';
-import ForgotPassword from '@/components/auth/ForgotPassword';
+import { Student, Attendance, Leave, Warning, WorkingDay } from "@/api/entityClient";import ForgotPassword from '@/components/auth/ForgotPassword';
 
 export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
@@ -47,7 +46,7 @@ export default function Home() {
       if (!enrollment.trim()) { toast.error('Please enter enrollment number'); return; }
       // Protection: enrollment must exist in Student entity (teacher must have added the student)
       try {
-        const existingStudents = await entities.Student.filter({ enrollment_number: enrollment.trim() });
+        const existingStudents = await Student.filter({ enrollment_number: enrollment.trim() });
         if (existingStudents.length === 0) {
           toast.error('This enrollment number is not registered by your teacher. Please contact your teacher to be added first.');
           return;

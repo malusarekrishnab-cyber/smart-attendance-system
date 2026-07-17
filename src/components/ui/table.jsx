@@ -84,4 +84,3 @@ export {
   TableCell,
   TableCaption,
 }
-s

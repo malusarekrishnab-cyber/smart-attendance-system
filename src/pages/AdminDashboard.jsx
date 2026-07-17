@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { entities } from '@/api/entityClient';
+import { Student, Attendance, Leave, Warning, WorkingDay } from "@/api/entityClient";
 import AccountManager from '@/components/admin/AccountManager';
 
 export default function AdminDashboard() {
@@ -43,9 +43,9 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const allStudents = await entities.Student.list();
-    const allLeaves = await entities.Leave.list();
-    const allAttendance = await entities.Attendance.list();
+    const allStudents = await Student.list();
+    const allLeaves = await Leave.list();
+    const allAttendance = await Attendance.list();
     setStudents(allStudents);
     setLeaves(allLeaves);
     setAttendance(allAttendance);
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
   };
 
   const handleLeaveAction = async (leaveId, status) => {
-    await entities.Leave.update(leaveId, { status });
+    await Leave.update(leaveId, { status });
     toast.success(`Leave ${status}`);
     fetchData();
   };

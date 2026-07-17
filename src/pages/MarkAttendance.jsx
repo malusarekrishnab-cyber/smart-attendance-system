@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { entities } from '@/api/entityClient';
+import { Student, Attendance, Leave, Warning, WorkingDay } from "@/api/entityClient";
 import { format } from 'date-fns';
 
 export default function MarkAttendance() {
@@ -43,14 +43,14 @@ export default function MarkAttendance() {
 
   const fetchStudents = async () => {
     setIsLoading(true);
-    const allStudents = await entities.Student.list();
+    const allStudents = await Student.list();
     setStudents(allStudents);
     setIsLoading(false);
   };
 
   const fetchExistingAttendance = async () => {
     const date = new Date(selectedDate);
-    const records = await entities.Attendance.filter({
+    const records = await Attendance.filter({
       date: selectedDate
     });
     setExistingRecords(records);
@@ -111,10 +111,10 @@ export default function MarkAttendance() {
     }
 
     if (toCreate.length > 0) {
-      await entities.Attendance.bulkCreate(toCreate);
+      await Attendance.bulkCreate(toCreate);
     }
     for (const update of toUpdate) {
-      await entities.Attendance.update(update.id, { status: update.status });
+      await Attendance.update(update.id, { status: update.status });
     }
 
     toast.success(`Attendance saved for ${format(date, 'dd MMM yyyy')}!`);

@@ -19,3 +19,6 @@ const app = initializeApp(firebaseConfig);
 // entityClient.js ani baki files madhe vaparण्यासाठी export karतोय
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+import { getStorage } from "firebase/storage";
+
+export const storage = getStorage(app);

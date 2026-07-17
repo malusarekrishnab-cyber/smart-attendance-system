@@ -1,20 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users,import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserPlus, Trash2, Eye, EyeOff, Loader2, Users, Shield, Mail, Hash } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState, useEffect } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import {
+  UserPlus,
+  Trash2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Users,
+  Shield,
+  Mail,
+  Hash,
+} from "lucide-react";
+
+import { toast } from "sonner";
 export default function AccountManager() {
   const [accounts, setAccounts] = useState([]);
   const [name, setName] = useState('');
@@ -82,12 +94,18 @@ export default function AccountManager() {
         role,
         enrollment: null
       };
-      existing.push(account);
-      localStorage.setItem('registeredAccounts', JSON.stringify(existing));
-      toast.success(`Account created for ${name.trim()}`);
-      setName(''); setEmail(''); setUsername(''); setPassword(''); setAccessCode('');
-      refreshAccounts();
-      setIsCreating(false);
+     existing.push(account);
+
+toast.success(`Account created for ${name.trim()}`);
+
+setName('');
+setEmail('');
+setUsername('');
+setPassword('');
+setAccessCode('');
+
+refreshAccounts();
+setIsCreating(false);
     }, 500);
   };
 
@@ -219,149 +237,5 @@ export default function AccountManager() {
         </div>
       </Card>
     </div>
-  );
-} UserPlus, Trash2, Shield, GraduationCap, User } from 'lucide-react';
-import { toast } from 'sonner';
-import { db } from '@/api/firebase';
-import {
-  collection, getDocs, doc, deleteDoc, setDoc
-} from 'firebase/firestore';
-
-export default function AccountManager() {
-  const [accounts, setAccounts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [name, setName] = useState('');
-  const [identifier, setIdentifier] = useState('');
-  const [role, setRole] = useState('student');
-  const [enrollment, setEnrollment] = useState('');
-
-  const fetchAccounts = async () => {
-    setIsLoading(true);
-    try {
-      const snap = await getDocs(collection(db, 'users'));
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setAccounts(list);
-    } catch (err) {
-      toast.error('Failed to load accounts');
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
-
-  const handleAdd = async () => {
-    if (!name.trim() || !identifier.trim()) {
-      toast.error('Please fill name and username/email');
-      return;
-    }
-    try {
-      const id = identifier.trim().toLowerCase();
-      await setDoc(doc(db, 'users', id), {
-        name: name.trim(),
-        identifier: id,
-        role,
-        enrollment: role === 'student' ? enrollment.trim() : null
-      });
-      toast.success('Account added');
-      setName(''); setIdentifier(''); setEnrollment('');
-      fetchAccounts();
-    } catch (err) {
-      toast.error('Failed to add account');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'users', id));
-      toast.success('Account removed');
-      fetchAccounts();
-    } catch (err) {
-      toast.error('Failed to remove account');
-    }
-  };
-
-  const roleIcon = (r) => {
-    if (r === 'admin') return <Shield className="w-3.5 h-3.5" />;
-    if (r === 'teacher') return <User className="w-3.5 h-3.5" />;
-    return <GraduationCap className="w-3.5 h-3.5" />;
-  };
-
-  return (
-    <Card className="border-0 shadow-md overflow-hidden">
-      <CardHeader className="bg-slate-50 border-b">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="w-5 h-5 text-blue-600" />
-          Account Management
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
-          <div className="space-y-2">
-            <Label className="text-slate-700">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="border-slate-200" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-slate-700">Username / Email</Label>
-            <Input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="identifier" className="border-slate-200" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-slate-700">Role</Label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 text-sm">
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-slate-700">Enrollment</Label>
-            <Input value={enrollment} onChange={(e) => setEnrollment(e.target.value)} placeholder="(students)" className="border-slate-200" />
-          </div>
-          <Button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 h-9">
-            <UserPlus className="w-4 h-4 mr-2" />Add
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <p className="text-center text-slate-400 py-8">Loading accounts...</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="font-semibold">Name</TableHead>
-                  <TableHead className="font-semibold">Identifier</TableHead>
-                  <TableHead className="font-semibold">Role</TableHead>
-                  <TableHead className="font-semibold text-center">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {accounts.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-400">No accounts</TableCell></TableRow>
-                ) : (
-                  accounts.map((acc) => (
-                    <TableRow key={acc.id} className="hover:bg-slate-50">
-                      <TableCell className="font-medium">{acc.name}</TableCell>
-                      <TableCell className="font-mono text-sm">{acc.identifier}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-slate-100 text-slate-700 border-0 inline-flex items-center gap-1">
-                          {roleIcon(acc.role)}{acc.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 h-8" onClick={() => handleDelete(acc.id)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }

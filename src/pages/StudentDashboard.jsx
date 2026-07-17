@@ -18,8 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
-import { entities } from '@/api/entityClient';
-
+import { Student, Attendance, Leave, Warning, WorkingDay } from "@/api/entityClient";
 
 import { format, getDaysInMonth, startOfMonth, addDays } from 'date-fns';
 import { generatePDF } from '@/lib/pdfUtils';
@@ -80,14 +79,14 @@ export default function StudentDashboard() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const students = await entities.Student.filter({ enrollment_number: enrollment });
+    const students = await Student.filter({ enrollment_number: enrollment });
     if (students.length > 0) setStudentName(students[0].name);
     else setStudentName('Student');
-    const attendance = await entities.Attendance.filter({ enrollment_number: enrollment });
+    const attendance = await Attendance.filter({ enrollment_number: enrollment });
     setAllAttendance(attendance);
-    const leaves = await entities.Leave.filter({ enrollment_number: enrollment });
+    const leaves = await Leave.filter({ enrollment_number: enrollment });
     setMyLeaves(leaves);
-    const studentWarnings = await entities.Warning.filter({ enrollment_number: enrollment });
+    const studentWarnings = await Warning.filter({ enrollment_number: enrollment });
     setWarnings(studentWarnings);
     if (activeTab === 'monthly') await fetchMonthlyData(attendance);
     else await fetchSemesterData(attendance);
@@ -238,7 +237,7 @@ export default function StudentDashboard() {
       toast.error('Please fill all leave details');
       return;
     }
-    await entities.Leave.create({
+    await Leave.create({
       enrollment_number: enrollment,
       student_name: studentName,
       from_date: leaveFrom,
@@ -366,7 +365,7 @@ export default function StudentDashboard() {
                           <p className="text-sm text-slate-700">{warning.message}</p>
                           <p className="text-xs text-slate-400 mt-1">Attendance: {warning.attendance_percentage?.toFixed(1)}%</p>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={async () => { await entities.Warning.update(warning.id, { status: 'read' }); fetchData(); }}
+                        <Button size="sm" variant="ghost" onClick={async () => { await Warning.update(warning.id, { status: 'read' }); fetchData(); }}
                           className="text-slate-400 hover:text-slate-600 h-7 px-2 text-xs">Mark Read</Button>
                       </motion.div>
                     ))}
